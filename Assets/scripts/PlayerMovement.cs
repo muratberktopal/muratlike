@@ -2,26 +2,38 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public float moveSpeed = 8f; // Mobilde biraz daha hýzlý hissettirmeli
-    public MobileJoystick joystick; // Inspector'dan atayacaðýz
+    public float moveSpeed = 5f;
+    private Rigidbody rb;
 
-    void Update()
+    void Start()
     {
-        // Klavye GÝTTÝ -> Joystick GELDÝ
-        float x = joystick.InputDirection.x;
-        float z = joystick.InputDirection.y;
+        rb = GetComponent<Rigidbody>(); // Rigidbody'yi otomatik bul
+    }
+
+    void Update() // Fizik iï¿½lemleri iï¿½in FixedUpdate daha iyidir ama basitlik iï¿½in Update kalsï¿½n
+    {
+        float x = Input.GetAxis("Horizontal");
+        float z = Input.GetAxis("Vertical");
 
         Vector3 moveDir = new Vector3(x, 0, z);
 
-        // Hareket varsa
-        if (moveDir.magnitude > 0.1f) // Küçük titremeleri önlemek için 0.1 eþik deðeri
+        if (moveDir.magnitude > 0.1f)
         {
-            // Hareketi uygula
-            transform.Translate(moveDir * moveSpeed * Time.deltaTime, Space.World);
-
-            // Dönüþü yumuþat (LookRotation)
+            // 1. Yï¿½nï¿½ ayarla (Dï¿½nï¿½ï¿½)
             Quaternion toRotation = Quaternion.LookRotation(moveDir, Vector3.up);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, toRotation, 720 * Time.deltaTime);
+
+            // 2. Hï¿½zï¿½ ayarla (Hareket)
+            // Mevcut Y hï¿½zï¿½nï¿½ (yerï¿½ekimi dï¿½ï¿½ï¿½ï¿½ï¿½nï¿½) koruyarak sadece X ve Z'de hareket veriyoruz.
+            Vector3 newVelocity = moveDir * moveSpeed;
+            newVelocity.y = rb.linearVelocity.y; // Yerï¿½ekimini bozma!
+
+            rb.linearVelocity = newVelocity;
+        }
+        else
+        {
+            // Tuï¿½a basmï¿½yorsak kaymayï¿½ ï¿½nlemek iï¿½in X ve Z hï¿½zï¿½nï¿½ sï¿½fï¿½rla (Y kalsï¿½n)
+            rb.linearVelocity = new Vector3(0, rb.linearVelocity.y, 0);
         }
     }
 }
