@@ -1,54 +1,88 @@
-// SoldierAI.cs
 using UnityEngine;
+
+public enum SoldierState { Idle, Following, Working }
 
 public class SoldierAI : MonoBehaviour, IRecruitable
 {
     [Header("Settings")]
-    public float followSpeed = 8f;
-    public float stoppingDistance = 1.5f; // Öndeki kiþiyle ne kadar mesafe kalsýn?
-    public float rotationSpeed = 10f;
+    public float moveSpeed = 6f;
+    public float rotationSpeed = 12f;
+    public float defaultStoppingDistance = 1.2f;
 
-    private Transform _target; // Takip edilecek obje (Player veya bir önceki asker)
-    private bool _isRecruited = false;
+    [Header("Debug")]
+    [SerializeField] private SoldierState currentState = SoldierState.Idle;
+    private Transform _target;
+    private float _stoppingDistance;
 
-    // Interface implementation
-    public bool IsRecruited => _isRecruited;
+    public bool IsRecruited => currentState == SoldierState.Following;
+    public bool IsWorking => currentState == SoldierState.Working;
 
-    public void OnRecruit(Transform targetToFollow)
+    void Start()
     {
-        _isRecruited = true;
-        _target = targetToFollow;
-
-        // Asker gruba katýldýðýnda ufak bir görsel/ses efekti eklenebilir.
-        // GetComponent<Animator>().SetBool("IsWalking", true); gibi.
+        _stoppingDistance = defaultStoppingDistance;
     }
 
     void Update()
     {
-        if (!_isRecruited || _target == null) return;
-
-        MoveTowardsTarget();
+        if (_target == null) return;
+        MoveToTarget();
     }
 
-    private void MoveTowardsTarget()
+    // --- TAKIMA KATILMA ---
+    public bool OnRecruit(Transform targetToFollow)
     {
-        // Hedef ile aradaki mesafeyi ölç
+        // Zaten takýmdaysa iþlem yapma
+        if (currentState == SoldierState.Following) return false;
+
+        currentState = SoldierState.Following;
+        _target = targetToFollow;
+        _stoppingDistance = defaultStoppingDistance; // Mesafeyi normale çevir
+
+        SetPhysics(true);
+        return true;
+    }
+
+    // --- ÝÞE YERLEÞME ---
+    public void OnDeploy(Transform workSlot)
+    {
+        currentState = SoldierState.Working;
+        _target = workSlot;
+        _stoppingDistance = 0.1f; // Tam noktaya otursun
+    }
+
+    // --- ÝÞÝ BIRAKMA ---
+    public void LeaveWork()
+    {
+        currentState = SoldierState.Idle;
+        _target = null;
+    }
+
+    private void MoveToTarget()
+    {
         float distance = Vector3.Distance(transform.position, _target.position);
 
-        // Eðer mesafe, durma mesafesinden büyükse hareket et
-        if (distance > stoppingDistance)
+        if (distance > _stoppingDistance)
         {
-            // Pozisyonu yumuþak bir þekilde hedefe doðru kaydýr (Lerp)
-            // Tren efekti için Lerp çok önemlidir.
-            transform.position = Vector3.Lerp(transform.position, _target.position, followSpeed * Time.deltaTime);
-
-            // Yüzünü hedefe dön
             Vector3 direction = (_target.position - transform.position).normalized;
+            direction.y = 0;
+
             if (direction != Vector3.zero)
             {
-                Quaternion lookRotation = Quaternion.LookRotation(direction);
-                transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, rotationSpeed * Time.deltaTime);
+                Quaternion lookRot = Quaternion.LookRotation(direction);
+                transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, rotationSpeed * Time.deltaTime);
             }
+            transform.position = Vector3.MoveTowards(transform.position, _target.position, moveSpeed * Time.deltaTime);
         }
+        else if (currentState == SoldierState.Working)
+        {
+            // Ýþ yerindeyse slotun baktýðý yöne dön
+            transform.rotation = Quaternion.Slerp(transform.rotation, _target.rotation, rotationSpeed * Time.deltaTime);
+        }
+    }
+
+    private void SetPhysics(bool isKinematic)
+    {
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb) rb.isKinematic = true;
     }
 }

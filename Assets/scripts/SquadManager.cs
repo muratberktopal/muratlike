@@ -6,71 +6,75 @@ public class SquadManager : MonoBehaviour
     [Header("Squad Settings")]
     public int maxSquadSize = 10;
     public Transform followPoint;
+    public float detectionRadius = 3f;
+    public LayerMask recruitLayer;
 
-    [Header("Detection Settings")]
-    public float detectionRadius = 3f; // Asker toplama mesafesi
-    public LayerMask recruitLayer; // Sadece "Recruitable" layerýný tara (Performans için þart)
-
-    [Header("Debug Info")]
     [SerializeField] private List<SoldierAI> currentSquad = new List<SoldierAI>();
-
-    // Performans Optimizasyonu: Her frame tarama yapmak yerine saniyede 5-10 kere yapmak yeterlidir.
     private float _scanTimer;
-    private float _scanInterval = 0.1f; // Saniyede 10 kez tarar
 
     void Update()
     {
-        HandleRecruitmentScan();
+        _scanTimer -= Time.deltaTime;
+        if (_scanTimer <= 0)
+        {
+            _scanTimer = 0.2f;
+            ScanForRecruits();
+        }
     }
 
-    private void HandleRecruitmentScan()
+    private void ScanForRecruits()
     {
-        _scanTimer -= Time.deltaTime;
-        if (_scanTimer > 0) return;
+        if (currentSquad.Count >= maxSquadSize) return;
 
-        _scanTimer = _scanInterval; // Sayacý sýfýrla
-
-        // Karakterin etrafýnda hayali bir küre oluþtur ve içindeki objeleri bul
-        // Bu metod, Sphere Collider'ýn kod karþýlýðýdýr.
         Collider[] hits = Physics.OverlapSphere(transform.position, detectionRadius, recruitLayer);
-
         foreach (var hit in hits)
         {
-            // Bulunan obje IRecruitable mý? (Interface kontrolü)
-            IRecruitable recruit = hit.GetComponent<IRecruitable>();
+            SoldierAI soldier = hit.GetComponent<SoldierAI>();
 
-            if (recruit != null && !recruit.IsRecruited)
+            // KESÝN KURAL: Asker çalýþýyorsa (IsWorking) onu GÖRMEZDEN GEL.
+            // Onu sadece DefensePoint (Kule) scripti bize geri verebilir.
+            if (soldier != null && !soldier.IsRecruited && !soldier.IsWorking)
             {
-                if (currentSquad.Count < maxSquadSize)
-                {
-                    // Asker scriptine (SoldierAI) eriþ ve ekle
-                    SoldierAI soldier = hit.GetComponent<SoldierAI>();
-                    if (soldier != null)
-                    {
-                        AddSoldierToSquad(soldier);
-                    }
-                }
+                AddSoldierToSquad(soldier);
             }
         }
     }
 
-    private void AddSoldierToSquad(SoldierAI newSoldier)
+    public void AddSoldierToSquad(SoldierAI newSoldier)
     {
-        Transform targetForNewSoldier;
+        // Zaten listedeyse iþlem yapma
+        if (currentSquad.Contains(newSoldier)) return;
 
-        if (currentSquad.Count == 0)
-            targetForNewSoldier = followPoint;
-        else
-            targetForNewSoldier = currentSquad[currentSquad.Count - 1].transform;
+        // Hedefi belirle (Ya FollowPoint ya da son asker)
+        Transform target = (currentSquad.Count == 0) ? followPoint : currentSquad[currentSquad.Count - 1].transform;
 
-        newSoldier.OnRecruit(targetForNewSoldier);
-        currentSquad.Add(newSoldier);
+        // ÖNEMLÝ DEÐÝÞÝKLÝK:
+        // Önce askere emri ver, eðer asker "Tamam geliyorum (true)" derse listeye ekle.
+        // Eðer "Meþgulüm (false)" derse listeye ekleme.
+        if (newSoldier.OnRecruit(target))
+        {
+            currentSquad.Add(newSoldier);
+        }
     }
 
-    // Editörde toplama alanýný görebilmek için (Gizmos)
+    public SoldierAI GiveMemberToBuilding()
+    {
+        if (currentSquad.Count == 0) return null;
+
+        SoldierAI soldier = currentSquad[currentSquad.Count - 1];
+        currentSquad.RemoveAt(currentSquad.Count - 1);
+        return soldier;
+    }
+
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, detectionRadius);
     }
+
+    public bool IsSquadFull()
+    {
+        return currentSquad.Count >= maxSquadSize;
+    }
+
 }
