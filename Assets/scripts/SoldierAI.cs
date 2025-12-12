@@ -55,21 +55,40 @@ public class SoldierAI : MonoBehaviour, IRecruitable
     }
 
     // --- DURUM 1: ÇALIÞMA MODU (SABÝT SAVUNMA) ---
+    // --- DURUM 1: ÇALIÞMA MODU (YERÝNE GÝT VE SAVUN) ---
+    // --- DURUM 1: ÇALIÞMA MODU (YERÝNE GÝT VE SAVUN) ---
     private void HandleWorkingState(bool hasEnemy)
     {
-        // Çalýþýrken hareket etmiyoruz, sadece dönüyoruz.
+        // 1. HAREKET: Önce atandýðým slota gitmeliyim!
+        // Havada asýlý kalma sorununun çözümü burasý:
+        float distance = Vector3.Distance(transform.position, _target.position);
 
+        // OnDeploy içinde stoppingDistance 0.1f yapýlmýþtý, yani tam noktaya gidene kadar yürü.
+        if (distance > _stoppingDistance)
+        {
+            transform.position = Vector3.MoveTowards(transform.position, _target.position, moveSpeed * Time.deltaTime);
+        }
+
+        // 2. ROTASYON: Nereye bakacaðým?
         if (hasEnemy)
         {
-            // Düþman varsa ona dön
+            // Düþman varsa, yürürken bile ona bak (Ateþ ederek yerine git)
             RotateTowards(_combatModule.CurrentTarget.position);
         }
         else
         {
-            // Düþman yoksa atandýðým slotun baktýðý yere dön (Nöbet duruþu)
-            // _target burada Slot'un kendisidir.
-            Quaternion targetRot = _target.rotation;
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+            // Düþman yoksa...
+            if (distance > _stoppingDistance)
+            {
+                // Henüz yerime varmadým, yürüdüðüm yere (Slota) bakayým
+                RotateTowards(_target.position);
+            }
+            else
+            {
+                // Yerime vardým, artýk slotun baktýðý yöne (Nöbet yönüne) dönebilirim
+                Quaternion targetRot = _target.rotation;
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+            }
         }
     }
 
