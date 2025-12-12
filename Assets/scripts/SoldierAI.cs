@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public enum SoldierState { Idle, Following, Working, Attacking } // Attacking eklendi
+public enum SoldierState { Idle, Following, Working }
 
 public class SoldierAI : MonoBehaviour, IRecruitable
 {
@@ -11,18 +11,18 @@ public class SoldierAI : MonoBehaviour, IRecruitable
 
     [Header("Debug")]
     [SerializeField] private SoldierState currentState = SoldierState.Idle;
-    private Transform _target;
+    private Transform _target; // Takip edilen (Player veya Slot)
     private float _stoppingDistance;
 
-    // BÝLEÞEN REFERANSI
+    // Referanslar
     private SoldierCombat _combatModule;
 
+    // Propertyler
     public bool IsRecruited => currentState == SoldierState.Following;
     public bool IsWorking => currentState == SoldierState.Working;
 
     void Awake()
     {
-        // Ayný obje üzerindeki Combat scriptini bul
         _combatModule = GetComponent<SoldierCombat>();
     }
 
@@ -33,42 +33,90 @@ public class SoldierAI : MonoBehaviour, IRecruitable
 
     void Update()
     {
-        // --- YENÝ SAVAÞ MANTIÐI ---
-        if (_combatModule != null && _combatModule.HasTarget)
+        // 1. ÖNCE SAVAÞ KONTROLÜ
+        // Hedef var mý? Varsa ateþ et (Hareketten baðýmsýz)
+        bool hasEnemy = _combatModule != null && _combatModule.HasTarget;
+        if (hasEnemy)
         {
-            // Eðer hedef varsa, normal iþleri býrakýp SAVAÞ MODUNA geç
-            HandleCombat();
-            return; // Aþaðýdaki hareket kodlarýný çalýþtýrma
+            _combatModule.AttackTarget();
         }
-        // ---------------------------
 
+        // 2. HAREKET VE ROTASYON MANTIÐI
         if (_target == null) return;
-        MoveToTarget();
+
+        if (currentState == SoldierState.Working)
+        {
+            HandleWorkingState(hasEnemy);
+        }
+        else if (currentState == SoldierState.Following)
+        {
+            HandleFollowingState(hasEnemy);
+        }
     }
 
-    private void HandleCombat()
+    // --- DURUM 1: ÇALIÞMA MODU (SABÝT SAVUNMA) ---
+    private void HandleWorkingState(bool hasEnemy)
     {
-        currentState = SoldierState.Attacking;
+        // Çalýþýrken hareket etmiyoruz, sadece dönüyoruz.
 
-        // 1. Hedefe Dön (Yüzünü düþmana çevir)
-        Transform enemy = _combatModule.CurrentTarget;
-        Vector3 direction = (enemy.position - transform.position).normalized;
-        direction.y = 0;
+        if (hasEnemy)
+        {
+            // Düþman varsa ona dön
+            RotateTowards(_combatModule.CurrentTarget.position);
+        }
+        else
+        {
+            // Düþman yoksa atandýðým slotun baktýðý yere dön (Nöbet duruþu)
+            // _target burada Slot'un kendisidir.
+            Quaternion targetRot = _target.rotation;
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+        }
+    }
+
+    // --- DURUM 2: TAKÝP MODU (KOÞ VE ATEÞ ET) ---
+    private void HandleFollowingState(bool hasEnemy)
+    {
+        // A. HAREKET (Her zaman oyuncuyu takip et)
+        float distance = Vector3.Distance(transform.position, _target.position);
+        if (distance > _stoppingDistance)
+        {
+            transform.position = Vector3.MoveTowards(transform.position, _target.position, moveSpeed * Time.deltaTime);
+        }
+
+        // B. ROTASYON (Duruma göre deðiþir)
+        if (hasEnemy)
+        {
+            // Hareket etsem bile yüzüm düþmana baksýn (Ateþ etmek için)
+            RotateTowards(_combatModule.CurrentTarget.position);
+        }
+        else
+        {
+            // Düþman yoksa, gittiðim yöne (oyuncuya) bakayým
+            if (distance > _stoppingDistance) // Sadece hareket ediyorsam döneyim
+            {
+                RotateTowards(_target.position);
+            }
+        }
+    }
+
+    // --- YARDIMCI: DÖNÜÞ FONKSÝYONU ---
+    private void RotateTowards(Vector3 targetPosition)
+    {
+        Vector3 direction = (targetPosition - transform.position).normalized;
+        direction.y = 0; // Yere paralel kal, havaya/yere bakma
 
         if (direction != Vector3.zero)
         {
             Quaternion lookRot = Quaternion.LookRotation(direction);
             transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, rotationSpeed * Time.deltaTime);
         }
-
-        // 2. Saldýr
-        _combatModule.AttackTarget();
     }
 
-    // --- DÝÐER FONKSÝYONLAR AYNEN KALIYOR ---
+    // --- Interface Metotlarý ---
     public bool OnRecruit(Transform targetToFollow)
     {
         if (currentState == SoldierState.Following) return false;
+
         currentState = SoldierState.Following;
         _target = targetToFollow;
         _stoppingDistance = defaultStoppingDistance;
@@ -87,37 +135,6 @@ public class SoldierAI : MonoBehaviour, IRecruitable
     {
         currentState = SoldierState.Idle;
         _target = null;
-    }
-
-    private void MoveToTarget()
-    {
-        // Eðer savaþtan çýktýysak durumu düzelt
-        if (currentState == SoldierState.Attacking)
-        {
-            // Eski duruma dön (Working veya Following)
-            // Basitçe: Target neyse ona uygun state'i seçebilirsin ama
-            // þimdilik IsRecruited mantýðýyla otomatik düzelir.
-            if (_stoppingDistance < 1f) currentState = SoldierState.Working;
-            else currentState = SoldierState.Following;
-        }
-
-        float distance = Vector3.Distance(transform.position, _target.position);
-
-        if (distance > _stoppingDistance)
-        {
-            Vector3 direction = (_target.position - transform.position).normalized;
-            direction.y = 0;
-            if (direction != Vector3.zero)
-            {
-                Quaternion lookRot = Quaternion.LookRotation(direction);
-                transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, rotationSpeed * Time.deltaTime);
-            }
-            transform.position = Vector3.MoveTowards(transform.position, _target.position, moveSpeed * Time.deltaTime);
-        }
-        else if (currentState == SoldierState.Working)
-        {
-            transform.rotation = Quaternion.Slerp(transform.rotation, _target.rotation, rotationSpeed * Time.deltaTime);
-        }
     }
 
     private void SetPhysics(bool isKinematic)
