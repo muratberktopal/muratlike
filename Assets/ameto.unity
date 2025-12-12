@@ -948,8 +948,8 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1733708949}
   - {fileID: 1884912961}
+  - {fileID: 1733708949}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &1071081555
@@ -996,7 +996,7 @@ MonoBehaviour:
   detectionRadius: 3
   recruitLayer:
     serializedVersion: 2
-    m_Bits: 256
+    m_Bits: 128
   currentSquad: []
 --- !u!1 &1240635160
 GameObject:
@@ -1489,8 +1489,8 @@ Transform:
   m_GameObject: {fileID: 1733708948}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.535, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0, y: 0.099396944, z: -0.481}
+  m_LocalScale: {x: 0.13733, y: 0.13733, z: 0.13733}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1071081554}
@@ -1580,7 +1580,7 @@ Transform:
   m_GameObject: {fileID: 1884912960}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.521, z: -0.481}
+  m_LocalPosition: {x: 0, y: 0.521, z: 0.469}
   m_LocalScale: {x: 0.13733, y: 0.13733, z: 0.13733}
   m_ConstrainProportionsScale: 0
   m_Children: []
