@@ -1,26 +1,54 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class EnemySpawner : MonoBehaviour
 {
-    public GameObject enemyPrefab;  // Kimi doðurayým?
-    public Transform spawnPoint;    // Nerede doðurayým?
-    public float saniye = 3f;       // Kaç saniyede bir?
+    [Header("Ayarlar")]
+    [SerializeField] private GameObject enemyPrefab;    // Üretilecek düþman
+    [SerializeField] private float spawnInterval = 2f;  // Kaç saniyede bir?
 
-    void Start()
+    [Header("Spawn Noktalarý")]
+    [SerializeField] private List<Transform> spawnPoints; // Esnek Liste (Array yerine List daha iyidir)
+
+    private void Start()
     {
-        StartCoroutine(Dogur());
+        // --- GÜVENLÝK KONTROLÜ ---
+        // Eðer listeyi boþ unuttuysan oyun hata vermesin, seni uyarsýn.
+        if (spawnPoints == null || spawnPoints.Count == 0)
+        {
+            Debug.LogError("HATA: EnemySpawner scriptine Spawn Noktasý atamayý unuttun!");
+            return; // Kodu burada durdur
+        }
+
+        if (enemyPrefab == null)
+        {
+            Debug.LogError("HATA: Enemy Prefab'ý atanmamýþ!");
+            return;
+        }
+
+        // Her þey tamsa üretime baþla
+        StartCoroutine(SpawnRoutine());
     }
 
-    IEnumerator Dogur()
+    private IEnumerator SpawnRoutine()
     {
-        while (true) // Sonsuza kadar döngü
+        while (true) // Oyun bitene kadar döngü
         {
-            // Düþmaný yarat
-            Instantiate(enemyPrefab, spawnPoint.position, Quaternion.identity);
-
-            // Bekle
-            yield return new WaitForSeconds(saniye);
+            SpawnEnemy();
+            yield return new WaitForSeconds(spawnInterval);
         }
+    }
+
+    private void SpawnEnemy()
+    {
+        // 1. Rastgele bir index seç
+        int randomIndex = Random.Range(0, spawnPoints.Count);
+
+        // 2. O noktayý al
+        Transform selectedPoint = spawnPoints[randomIndex];
+
+        // 3. Düþmaný yarat (Rotasyon önemli deðilse Quaternion.identity)
+        Instantiate(enemyPrefab, selectedPoint.position, Quaternion.identity);
     }
 }
