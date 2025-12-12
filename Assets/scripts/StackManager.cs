@@ -16,6 +16,21 @@ public class StackManager : MonoBehaviour
     // DropZone eriþimi için sayý bilgisi
     public int ItemCount => collectedList.Count;
 
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.TryGetComponent(out Collectable item))
+        {
+            if (item.IsCollected) return;
+
+            if (collectedList.Count < maxCapacity)
+            {
+                // Fiziðini kapatýp çantaya alýyoruz
+                AddToStack(item);
+            }
+        }
+    }
+
     // --- TOPLAMA (Çarpýþma) ---
     private void OnTriggerEnter(Collider other)
     {
