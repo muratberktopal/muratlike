@@ -24,23 +24,23 @@ public class SquadManager : MonoBehaviour
 
     private void ScanForRecruits()
     {
-        if (currentSquad.Count >= maxSquadSize) return;
+        if (IsSquadFull()) return;
 
         Collider[] hits = Physics.OverlapSphere(transform.position, detectionRadius, recruitLayer);
         foreach (var hit in hits)
         {
             SoldierAI soldier = hit.GetComponent<SoldierAI>();
 
-            // KESÝN KURAL: Asker çalýþýyorsa (IsWorking) onu GÖRMEZDEN GEL.
-            // Onu sadece DefensePoint (Kule) scripti bize geri verebilir.
+            // KURAL: Asker çalýþýyorsa onu görmezden gel.
             if (soldier != null && !soldier.IsRecruited && !soldier.IsWorking)
             {
-                AddSoldierToSquad(soldier);
+                TryAddRecruit(soldier);
             }
         }
     }
 
-    public void AddSoldierToSquad(SoldierAI newSoldier)
+    // Takýma yeni bir askeri eklemeyi dener
+    private void TryAddRecruit(SoldierAI newSoldier)
     {
         // Zaten listedeyse iþlem yapma
         if (currentSquad.Contains(newSoldier)) return;
@@ -48,33 +48,57 @@ public class SquadManager : MonoBehaviour
         // Hedefi belirle (Ya FollowPoint ya da son asker)
         Transform target = (currentSquad.Count == 0) ? followPoint : currentSquad[currentSquad.Count - 1].transform;
 
-        // ÖNEMLÝ DEÐÝÞÝKLÝK:
-        // Önce askere emri ver, eðer asker "Tamam geliyorum (true)" derse listeye ekle.
-        // Eðer "Meþgulüm (false)" derse listeye ekleme.
+        // Askere emri ver. Baþarýlý olursa (true dönerse) listeye ekle.
         if (newSoldier.OnRecruit(target))
         {
             currentSquad.Add(newSoldier);
+            // DEBUG: Debug.Log($"Asker takýma eklendi: {newSoldier.name}");
         }
     }
 
+
+    // --- DIÞ KULLANIM METOTLARI (DefensePoint için) ---
+
+    // Dýþarýdan bir asker (örneðin bir binadan) takýma geri döner
+    public void ReturnMemberToSquad(SoldierAI returnedSoldier)
+    {
+        if (returnedSoldier == null || currentSquad.Contains(returnedSoldier) || IsSquadFull()) return;
+
+        returnedSoldier.LeaveWork(); // Askerin durumunu Idle'a çek
+        TryAddRecruit(returnedSoldier); // Takip zincirine girmeyi dene
+    }
+
+    // Takýmdan en son askeri bir binaya vermek için ayýrýr.
     public SoldierAI GiveMemberToBuilding()
     {
         if (currentSquad.Count == 0) return null;
 
+        // Listenin sonundaki askeri al
         SoldierAI soldier = currentSquad[currentSquad.Count - 1];
-        currentSquad.RemoveAt(currentSquad.Count - 1);
+
+        // ÖNEMLÝ: Askere 'LeaveWork' emri VERME! Bu emri sadece bina (DefensePoint) verecek,
+        // askerini aldýktan sonra onu kendi slotuna yerleþtirirken.
+
+        currentSquad.RemoveAt(currentSquad.Count - 1); // Listeden çýkar
         return soldier;
     }
+
+    // Takýmýn dolu olup olmadýðýný kontrol et
+    public bool IsSquadFull()
+    {
+        return currentSquad.Count >= maxSquadSize;
+    }
+
+    // Takýmda asker olup olmadýðýný kontrol et
+    public bool CanGiveMember()
+    {
+        return currentSquad.Count > 0;
+    }
+
 
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, detectionRadius);
     }
-
-    public bool IsSquadFull()
-    {
-        return currentSquad.Count >= maxSquadSize;
-    }
-
 }
